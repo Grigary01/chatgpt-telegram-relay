@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="color-scheme" content="dark" />
   <title>Telegram Relay</title>
@@ -10,11 +10,12 @@
     :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#f5f7fa; background:#090b10; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; padding:24px; background:radial-gradient(circle at 20% 10%,rgba(48,115,246,.18),transparent 32%),radial-gradient(circle at 85% 0%,rgba(139,92,246,.15),transparent 28%),#090b10; }
-    main { width:min(760px,100%); margin:5vh auto; }
+    main { width:min(800px,100%); margin:4vh auto; }
     .card { border:1px solid #252b36; border-radius:24px; background:rgba(17,21,29,.94); box-shadow:0 24px 80px rgba(0,0,0,.36); padding:28px; }
     .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:22px; }
     .eyebrow { margin:0 0 7px; color:#8da8d6; text-transform:uppercase; letter-spacing:.13em; font-size:12px; font-weight:800; }
     h1 { margin:0; font-size:clamp(30px,6vw,46px); line-height:1.03; }
+    h2 { margin:0 0 10px; font-size:18px; }
     .sub { margin:12px 0 0; color:#aeb7c6; line-height:1.55; }
     .pill { border:1px solid #303846; border-radius:999px; padding:8px 11px; font-size:13px; white-space:nowrap; color:#b8c3d4; }
     .pill.ok { color:#9ee6b3; border-color:#285d39; background:#102218; }
@@ -22,20 +23,45 @@
     .panel.active { display:block; }
     label { display:block; margin:16px 0 8px; font-weight:750; }
     input, textarea { width:100%; border:1px solid #343c49; border-radius:14px; padding:14px 15px; background:#0c1017; color:#f5f7fa; font:inherit; outline:none; }
-    textarea { min-height:190px; resize:vertical; line-height:1.45; }
+    textarea { min-height:210px; resize:vertical; line-height:1.45; }
     input:focus,textarea:focus { border-color:#6da3ff; box-shadow:0 0 0 3px rgba(109,163,255,.12); }
     .row { display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; margin-top:10px; }
-    button { border:0; border-radius:14px; padding:14px 18px; background:#f5f7fa; color:#0b0d10; font:inherit; font-weight:850; cursor:pointer; }
-    button.secondary { background:#1b2230; color:#edf2f7; border:1px solid #313a49; }
+    button, .link-button { border:0; border-radius:14px; padding:14px 18px; background:#f5f7fa; color:#0b0d10; font:inherit; font-weight:850; cursor:pointer; text-decoration:none; text-align:center; }
+    button.secondary, .link-button.secondary { background:#1b2230; color:#edf2f7; border:1px solid #313a49; }
+    button.ghost, .link-button.ghost { background:transparent; color:#b9c4d5; border:1px solid #303846; }
     button.danger { background:transparent; color:#f3b1b1; border:1px solid #5b3030; }
     button:disabled { opacity:.48; cursor:not-allowed; }
     .actions { display:flex; gap:10px; margin-top:16px; }
-    .actions button:first-child { flex:1; }
+    .actions .primary { flex:1; }
     .status { min-height:23px; margin:14px 0 0; color:#aeb7c6; font-size:14px; }
     .status.ok { color:#9ee6b3; } .status.bad { color:#ffb4b4; }
     .meta { display:flex; justify-content:space-between; gap:16px; margin-top:8px; color:#7f8a9b; font-size:12px; }
     .button-list { margin-top:14px; }
-    @media(max-width:620px){ .top{display:block}.pill{display:inline-block;margin-top:14px}.row{grid-template-columns:1fr}.actions{flex-direction:column}.card{padding:20px} }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 6px; }
+    .toolbar button, .toolbar .link-button { padding:9px 12px; border-radius:11px; font-size:13px; font-weight:750; }
+    .hint { margin:12px 0 0; color:#7f8a9b; font-size:12px; line-height:1.45; }
+    .history { margin-top:22px; padding-top:20px; border-top:1px solid #252b36; }
+    .history-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .history-head button { padding:8px 10px; font-size:12px; }
+    .history-list { display:grid; gap:8px; margin-top:12px; }
+    .history-item { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:11px 12px; border:1px solid #29313d; background:#0d1219; border-radius:12px; color:#aeb7c6; font-size:13px; }
+    .history-item strong { color:#e8edf5; font-weight:750; }
+    .empty { color:#7f8a9b; font-size:13px; margin:10px 0 0; }
+    .quick-only { display:none; }
+    body.quick main { width:min(680px,100%); margin:1.5vh auto; }
+    body.quick .card { padding:22px; }
+    body.quick .eyebrow, body.quick .sub { display:none; }
+    body.quick .top { margin-bottom:12px; align-items:center; }
+    body.quick h1 { font-size:24px; }
+    body.quick textarea { min-height:250px; }
+    body.quick .normal-only { display:none; }
+    body.quick .quick-only { display:inline-flex; }
+    @media(max-width:620px){
+      body{padding:12px 12px max(16px,env(safe-area-inset-bottom))}
+      main{margin:1vh auto}.top{display:block}.pill{display:inline-block;margin-top:14px}.row{grid-template-columns:1fr}.actions{flex-direction:column}.card{padding:18px;border-radius:18px}
+      textarea{min-height:220px}.toolbar{display:grid;grid-template-columns:1fr 1fr}.toolbar>*{width:100%}.history-item{align-items:flex-start;flex-direction:column;gap:4px}
+      body.quick .top{display:flex}.actions.sticky-mobile{position:sticky;bottom:8px;padding:8px;margin:12px -8px 0;background:linear-gradient(180deg,rgba(17,21,29,0),rgba(17,21,29,.98) 24%);z-index:3}
+    }
   </style>
 </head>
 <body>
@@ -54,30 +80,51 @@
       <form id="login-form" autocomplete="off">
         <label for="key">Relay key</label>
         <input id="key" type="password" autocomplete="current-password" required placeholder="Введите ключ доступа" />
-        <div class="actions"><button type="submit">Войти</button></div>
-        <p id="login-status" class="status"></p>
+        <div class="actions"><button type="submit" class="primary">Войти</button></div>
+        <p id="login-status" class="status" aria-live="polite"></p>
       </form>
     </div>
 
     <div id="send-panel" class="panel">
+      <div class="toolbar">
+        <a class="link-button ghost normal-only" href="?quick=1">⚡ Быстрый режим</a>
+        <a class="link-button ghost quick-only" href="/">Обычный режим</a>
+        <button type="button" id="clear-form" class="ghost">Очистить форму</button>
+      </div>
+
       <form id="send-form" autocomplete="off">
         <label for="text">Сообщение</label>
-        <textarea id="text" maxlength="3500" required placeholder="Введите сообщение…"></textarea>
-        <div class="meta"><span>До 3500 символов</span><span id="counter">0 / 3500</span></div>
+        <textarea id="text" maxlength="3500" required autofocus placeholder="Введите сообщение…"></textarea>
+        <div class="meta"><span>Ctrl/Cmd + Enter — отправить</span><span id="counter">0 / 3500</span></div>
 
         <div class="button-list" id="buttons"></div>
         <button type="button" id="add-button" class="secondary">+ Добавить кнопку</button>
 
-        <div class="actions">
-          <button id="send-button" type="submit">Отправить в Telegram</button>
+        <div class="actions sticky-mobile">
+          <button id="send-button" type="submit" class="primary">Отправить в Telegram</button>
           <button id="logout-button" type="button" class="danger">Выйти</button>
         </div>
-        <p id="send-status" class="status"></p>
+        <p id="send-status" class="status" aria-live="polite"></p>
       </form>
+
+      <p class="hint">История ниже хранится только в этом браузере и не содержит текст сообщений или Relay key.</p>
+      <section class="history" aria-label="История отправок">
+        <div class="history-head">
+          <h2>Последние отправки</h2>
+          <button type="button" id="clear-history" class="ghost">Очистить</button>
+        </div>
+        <div id="history-list" class="history-list"></div>
+        <p id="history-empty" class="empty">История пока пуста.</p>
+      </section>
     </div>
   </section>
 </main>
 <script>
+  const historyStorageKey = 'relay_send_history_meta_v1';
+  const params = new URLSearchParams(location.search);
+  const quickMode = params.get('quick') === '1';
+  document.body.classList.toggle('quick', quickMode);
+
   const state = document.getElementById('state');
   const loginPanel = document.getElementById('login-panel');
   const sendPanel = document.getElementById('send-panel');
@@ -89,12 +136,15 @@
   const counter = document.getElementById('counter');
   const addButton = document.getElementById('add-button');
   const buttonsRoot = document.getElementById('buttons');
+  const historyList = document.getElementById('history-list');
+  const historyEmpty = document.getElementById('history-empty');
 
   function showLoggedIn(value) {
     loginPanel.classList.toggle('active', !value);
     sendPanel.classList.toggle('active', value);
     state.textContent = value ? 'Авторизован' : 'Требуется вход';
     state.classList.toggle('ok', value);
+    if (value) setTimeout(() => text.focus(), 0);
   }
 
   async function api(path, options = {}) {
@@ -103,6 +153,49 @@
     const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : await response.text();
     if (!response.ok) throw new Error(typeof data === 'string' ? data.trim() : data.error || `HTTP ${response.status}`);
     return data;
+  }
+
+  function readHistory() {
+    try {
+      const value = JSON.parse(localStorage.getItem(historyStorageKey) || '[]');
+      return Array.isArray(value) ? value.slice(0, 8) : [];
+    } catch { return []; }
+  }
+
+  function writeHistory(items) {
+    try { localStorage.setItem(historyStorageKey, JSON.stringify(items.slice(0, 8))); } catch {}
+  }
+
+  function renderHistory() {
+    const items = readHistory();
+    historyList.replaceChildren();
+    historyEmpty.hidden = items.length > 0;
+    for (const item of items) {
+      const row = document.createElement('div');
+      row.className = 'history-item';
+      const when = new Date(item.at).toLocaleString('ru-RU', { dateStyle:'short', timeStyle:'short' });
+      const left = document.createElement('strong');
+      left.textContent = item.ok ? '✓ Отправлено' : '✕ Ошибка';
+      const right = document.createElement('span');
+      right.textContent = `${when} · ${item.chars} симв. · кнопок: ${item.buttons}`;
+      row.append(left, right);
+      historyList.appendChild(row);
+    }
+  }
+
+  function addHistory(ok, chars, buttons) {
+    const items = readHistory();
+    items.unshift({ at:new Date().toISOString(), ok:Boolean(ok), chars:Number(chars) || 0, buttons:Number(buttons) || 0 });
+    writeHistory(items);
+    renderHistory();
+  }
+
+  function clearComposer() {
+    text.value = '';
+    buttonsRoot.replaceChildren();
+    counter.textContent = '0 / 3500';
+    sendStatus.textContent = '';
+    text.focus();
   }
 
   async function refreshSession() {
@@ -148,20 +241,36 @@
   }
 
   addButton.addEventListener('click', addActionButton);
+  document.getElementById('clear-form').addEventListener('click', clearComposer);
+  document.getElementById('clear-history').addEventListener('click', () => { localStorage.removeItem(historyStorageKey); renderHistory(); });
   text.addEventListener('input', () => counter.textContent = `${[...text.value].length} / 3500`);
+  text.addEventListener('keydown', (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      if (sendForm.requestSubmit) sendForm.requestSubmit();
+    }
+  });
 
   sendForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const sendButton = document.getElementById('send-button');
+    const message = text.value;
+    const charCount = [...message].length;
     const buttons = [...buttonsRoot.children].map(row => ({ text:row.querySelector('.btn-text').value, url:row.querySelector('.btn-url').value }));
     sendButton.disabled = true;
     sendStatus.textContent = 'Отправляю…';
     sendStatus.className = 'status';
     try {
-      await api('/api/send?action=send', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:text.value, buttons}) });
+      await api('/api/send?action=send', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:message, buttons}) });
+      addHistory(true, charCount, buttons.length);
       sendStatus.textContent = '✓ Сообщение отправлено';
       sendStatus.className = 'status ok';
+      text.value = '';
+      buttonsRoot.replaceChildren();
+      counter.textContent = '0 / 3500';
+      setTimeout(() => text.focus(), 0);
     } catch (error) {
+      addHistory(false, charCount, buttons.length);
       if ((error.message || '').includes('unauthorized')) showLoggedIn(false);
       sendStatus.textContent = error.message || 'Ошибка отправки';
       sendStatus.className = 'status bad';
@@ -174,6 +283,7 @@
     sendStatus.textContent = '';
   });
 
+  renderHistory();
   refreshSession();
 </script>
 </body>
