@@ -73,8 +73,15 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Compatibility transport for ChatGPT Automations / Vercel URL fetch.
+	// Browser usage remains POST + signed HttpOnly session.
+	if action == "send" && r.Method == http.MethodGet {
+		handleQuerySend(w, r)
+		return
+	}
+
 	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST")
+		w.Header().Set("Allow", "GET, POST")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -150,7 +157,42 @@ func handleSend(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	processSend(w, r, input)
+}
 
+func handleQuerySend(w http.ResponseWriter, r *http.Request) {
+	if !credentialsConfigured() {
+		http.Error(w, "server is not configured", http.StatusInternalServerError)
+		return
+	}
+
+	providedKey := r.URL.Query().Get("key")
+	if !validRelayKey(providedKey) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	q := r.URL.Query()
+	buttons := make([]actionButton, 0, 3)
+	for _, pair := range [][2]string{{"button", "url"}, {"button2", "url2"}, {"button3", "url3"}} {
+		buttonText := strings.TrimSpace(q.Get(pair[0]))
+		buttonURL := strings.TrimSpace(q.Get(pair[1]))
+		if buttonText == "" && buttonURL == "" {
+			continue
+		}
+		if buttonText == "" {
+			buttonText = "Открыть"
+		}
+		buttons = append(buttons, actionButton{Text: buttonText, URL: buttonURL})
+	}
+
+	processSend(w, r, inputPayload{
+		Text:    q.Get("text"),
+		Buttons: buttons,
+	})
+}
+
+func processSend(w http.ResponseWriter, r *http.Request, input inputPayload) {
 	text := strings.TrimSpace(input.Text)
 	if text == "" {
 		http.Error(w, "message is empty", http.StatusBadRequest)
