@@ -2,17 +2,26 @@ package handler
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+)
+
+const (
+	sessionCookieName = "relay_session"
+	sessionTTL        = 12 * time.Hour
 )
 
 type inlineKeyboardButton struct {
@@ -36,38 +45,113 @@ type telegramResponse struct {
 	Description string `json:"description,omitempty"`
 }
 
-func Handler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+type actionButton struct {
+	Text string `json:"text"`
+	URL  string `json:"url"`
+}
 
-	if r.Method != http.MethodPost && r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET, POST")
+type inputPayload struct {
+	Key     string         `json:"key,omitempty"`
+	Text    string         `json:"text,omitempty"`
+	Buttons []actionButton `json:"buttons,omitempty"`
+}
+
+var telegramAPIBase = "https://api.telegram.org"
+var telegramHTTPClient = &http.Client{Timeout: 8 * time.Second}
+
+func Handler(w http.ResponseWriter, r *http.Request) {
+	securityHeaders(w)
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	action := strings.TrimSpace(r.URL.Query().Get("action"))
+	if action == "" {
+		action = "send"
+	}
+
+	if action == "health" {
+		handleHealth(w, r)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-
-	botToken := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN"))
-	chatID := strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID"))
-	relayKey := os.Getenv("RELAY_KEY")
-
-	if botToken == "" || chatID == "" || relayKey == "" {
-		http.Error(w, "server is not configured", http.StatusInternalServerError)
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
-		return
-	}
-
-	providedKey := r.FormValue("key")
-	if subtle.ConstantTimeCompare([]byte(providedKey), []byte(relayKey)) != 1 {
+	if !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 
-	text := strings.TrimSpace(r.FormValue("text"))
+	switch action {
+	case "login":
+		handleLogin(w, r)
+	case "logout":
+		handleLogout(w)
+	case "send":
+		handleSend(w, r)
+	default:
+		http.Error(w, "unknown action", http.StatusNotFound)
+	}
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":            true,
+		"configured":    credentialsConfigured(),
+		"authenticated": authenticated(r),
+	})
+}
+
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	if relayKey() == "" {
+		http.Error(w, "server is not configured", http.StatusInternalServerError)
+		return
+	}
+	input, ok := decodeInput(w, r, 4<<10)
+	if !ok {
+		return
+	}
+	if !validRelayKey(input.Key) {
+		time.Sleep(300 * time.Millisecond)
+		http.Error(w, "invalid access key", http.StatusUnauthorized)
+		return
+	}
+	session, err := newSessionValue(time.Now())
+	if err != nil {
+		http.Error(w, "failed to create session", http.StatusInternalServerError)
+		return
+	}
+	setSessionCookie(w, session)
+	_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+func handleLogout(w http.ResponseWriter) {
+	clearSessionCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func handleSend(w http.ResponseWriter, r *http.Request) {
+	if !credentialsConfigured() {
+		http.Error(w, "server is not configured", http.StatusInternalServerError)
+		return
+	}
+	if !authenticated(r) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	input, ok := decodeInput(w, r, 32<<10)
+	if !ok {
+		return
+	}
+
+	text := strings.TrimSpace(input.Text)
 	if text == "" {
 		http.Error(w, "message is empty", http.StatusBadRequest)
 		return
@@ -77,7 +161,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := buildButtons(r)
+	rows, err := buildButtons(input.Buttons)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -88,10 +172,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		replyMarkup = &inlineKeyboardMarkup{InlineKeyboard: rows}
 	}
 
-	text = fmt.Sprintf("%s\n\nОтправлено: %s UTC", text, time.Now().UTC().Format("2006-01-02 15:04:05"))
-
 	payload, err := json.Marshal(telegramRequest{
-		ChatID:                chatID,
+		ChatID:                strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")),
 		Text:                  text,
 		DisableWebPagePreview: true,
 		ReplyMarkup:           replyMarkup,
@@ -101,16 +183,15 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	telegramURL := "https://api.telegram.org/bot" + botToken + "/sendMessage"
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, telegramURL, bytes.NewReader(payload))
+	endpoint := telegramAPIBase + "/bot" + strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")) + "/sendMessage"
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
 		http.Error(w, "failed to create telegram request", http.StatusInternalServerError)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := telegramHTTPClient.Do(req)
 	if err != nil {
 		http.Error(w, "telegram request failed", http.StatusBadGateway)
 		return
@@ -134,61 +215,139 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	_, _ = fmt.Fprintf(w, `<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex,nofollow,noarchive">
-<title>Отправлено</title>
-<style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b0d10;color:#f5f7fa;font-family:system-ui,sans-serif;padding:24px}
-main{max-width:640px;border:1px solid #262b33;border-radius:20px;padding:28px;background:#13161b;text-align:center}
-h1{margin-top:0}.ok{font-size:54px;margin:0 0 12px}p{color:#aab2bd;line-height:1.5}a{display:inline-block;margin-top:10px;color:#f5f7fa}
-</style>
-</head>
-<body><main><div class="ok">✅</div><h1>Сообщение отправлено</h1><p>Telegram Bot API принял сообщение для чата %s.</p><a href="/">Вернуться назад</a></main></body>
-</html>`, html.EscapeString(chatID))
+	_ = json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 }
 
-func buildButtons(r *http.Request) ([][]inlineKeyboardButton, error) {
-	pairs := []struct {
-		urlKey      string
-		buttonKey   string
-		defaultText string
-	}{
-		{"url", "button", "📨 Открыть"},
-		{"url2", "button2", "Открыть 2"},
-		{"url3", "button3", "Открыть 3"},
+func decodeInput(w http.ResponseWriter, r *http.Request, limit int64) (inputPayload, bool) {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	defer r.Body.Close()
+	var input inputPayload
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&input); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return inputPayload{}, false
 	}
+	return input, true
+}
 
-	rows := make([][]inlineKeyboardButton, 0, len(pairs))
-	for _, pair := range pairs {
-		actionURL := strings.TrimSpace(r.FormValue(pair.urlKey))
-		if actionURL == "" {
+func securityHeaders(w http.ResponseWriter) {
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("X-Frame-Options", "DENY")
+	w.Header().Set("Referrer-Policy", "no-referrer")
+}
+
+func sameOrigin(r *http.Request) bool {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return true
+	}
+	scheme := "https"
+	if r.Header.Get("X-Forwarded-Proto") == "http" || (r.TLS == nil && r.Header.Get("X-Forwarded-Proto") == "") {
+		scheme = "http"
+	}
+	expected := scheme + "://" + r.Host
+	return hmac.Equal([]byte(origin), []byte(expected))
+}
+
+func relayKey() string {
+	return strings.TrimSpace(os.Getenv("RELAY_KEY"))
+}
+
+func credentialsConfigured() bool {
+	return relayKey() != "" && strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")) != "" && strings.TrimSpace(os.Getenv("TELEGRAM_CHAT_ID")) != ""
+}
+
+func validRelayKey(provided string) bool {
+	expected := relayKey()
+	provided = strings.TrimSpace(provided)
+	if expected == "" || len(provided) != len(expected) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) == 1
+}
+
+func newSessionValue(now time.Time) (string, error) {
+	if relayKey() == "" {
+		return "", fmt.Errorf("missing relay key")
+	}
+	nonce := make([]byte, 24)
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	payload := strconv.FormatInt(now.Unix(), 10) + "." + base64.RawURLEncoding.EncodeToString(nonce)
+	mac := hmac.New(sha256.New, []byte(relayKey()))
+	_, _ = mac.Write([]byte(payload))
+	sig := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+	return payload + "." + sig, nil
+}
+
+func validSessionValue(value string, now time.Time) bool {
+	parts := strings.Split(value, ".")
+	if len(parts) != 3 || relayKey() == "" {
+		return false
+	}
+	ts, err := strconv.ParseInt(parts[0], 10, 64)
+	if err != nil {
+		return false
+	}
+	issuedAt := time.Unix(ts, 0)
+	if issuedAt.After(now.Add(2*time.Minute)) || now.Sub(issuedAt) > sessionTTL {
+		return false
+	}
+	payload := parts[0] + "." + parts[1]
+	mac := hmac.New(sha256.New, []byte(relayKey()))
+	_, _ = mac.Write([]byte(payload))
+	expected, err := base64.RawURLEncoding.DecodeString(parts[2])
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(mac.Sum(nil), expected)
+}
+
+func authenticated(r *http.Request) bool {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return false
+	}
+	return validSessionValue(cookie.Value, time.Now())
+}
+
+func setSessionCookie(w http.ResponseWriter, value string) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: value, Path: "/", MaxAge: int(sessionTTL.Seconds()), HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode})
+}
+
+func clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{Name: sessionCookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode})
+}
+
+func buildButtons(buttons []actionButton) ([][]inlineKeyboardButton, error) {
+	if len(buttons) > 3 {
+		return nil, fmt.Errorf("too many buttons")
+	}
+	rows := make([][]inlineKeyboardButton, 0, len(buttons))
+	for _, button := range buttons {
+		actionURL := strings.TrimSpace(button.URL)
+		buttonText := strings.TrimSpace(button.Text)
+		if actionURL == "" && buttonText == "" {
 			continue
 		}
-
-		buttonText := strings.TrimSpace(r.FormValue(pair.buttonKey))
+		if actionURL == "" {
+			return nil, fmt.Errorf("button url is required")
+		}
 		if buttonText == "" {
-			buttonText = pair.defaultText
+			buttonText = "Открыть"
 		}
 		if !utf8.ValidString(buttonText) || utf8.RuneCountInString(buttonText) > 64 {
 			return nil, fmt.Errorf("button text is too long or invalid")
 		}
-
 		parsed, err := url.Parse(actionURL)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || len(actionURL) > 2048 {
+		if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || len(actionURL) > 2048 {
 			return nil, fmt.Errorf("invalid action url")
 		}
-
-		rows = append(rows, []inlineKeyboardButton{{
-			Text: buttonText,
-			URL:  actionURL,
-		}})
+		rows = append(rows, []inlineKeyboardButton{{Text: buttonText, URL: actionURL}})
 	}
-
 	return rows, nil
 }

@@ -4,153 +4,177 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="robots" content="noindex,nofollow,noarchive" />
-  <title>Уведомление для Гриши</title>
+  <meta name="color-scheme" content="dark" />
+  <title>Telegram Relay</title>
   <style>
-    :root {
-      color-scheme: dark;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0b0d10;
-      color: #f5f7fa;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background:
-        radial-gradient(circle at 20% 20%, rgba(53, 120, 229, 0.18), transparent 35%),
-        radial-gradient(circle at 80% 0%, rgba(91, 33, 182, 0.18), transparent 30%),
-        #0b0d10;
-    }
-
-    main {
-      width: min(680px, 100%);
-      border: 1px solid #262b33;
-      border-radius: 22px;
-      padding: 28px;
-      background: rgba(19, 22, 27, 0.94);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
-    }
-
-    .eyebrow {
-      margin: 0 0 8px;
-      color: #8ea6c9;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(28px, 6vw, 44px);
-      line-height: 1.04;
-    }
-
-    .hint {
-      margin: 14px 0 24px;
-      color: #aab2bd;
-      line-height: 1.55;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 700;
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 180px;
-      resize: vertical;
-      border: 1px solid #343a45;
-      border-radius: 14px;
-      padding: 15px 16px;
-      background: #0e1116;
-      color: #f5f7fa;
-      font: inherit;
-      line-height: 1.45;
-      outline: none;
-    }
-
-    textarea:focus {
-      border-color: #6ea8fe;
-      box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.12);
-    }
-
-    button {
-      width: 100%;
-      margin-top: 16px;
-      border: 0;
-      border-radius: 14px;
-      padding: 15px 18px;
-      background: #f5f7fa;
-      color: #0b0d10;
-      font: inherit;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    button:hover { filter: brightness(0.92); }
-    button:disabled { cursor: not-allowed; opacity: 0.45; }
-
-    #status {
-      min-height: 24px;
-      margin: 14px 0 0;
-      color: #aab2bd;
-      font-size: 14px;
-    }
-
-    .ok { color: #9ae6b4 !important; }
-    .bad { color: #feb2b2 !important; }
+    :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:#f5f7fa; background:#090b10; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:24px; background:radial-gradient(circle at 20% 10%,rgba(48,115,246,.18),transparent 32%),radial-gradient(circle at 85% 0%,rgba(139,92,246,.15),transparent 28%),#090b10; }
+    main { width:min(760px,100%); margin:5vh auto; }
+    .card { border:1px solid #252b36; border-radius:24px; background:rgba(17,21,29,.94); box-shadow:0 24px 80px rgba(0,0,0,.36); padding:28px; }
+    .top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:22px; }
+    .eyebrow { margin:0 0 7px; color:#8da8d6; text-transform:uppercase; letter-spacing:.13em; font-size:12px; font-weight:800; }
+    h1 { margin:0; font-size:clamp(30px,6vw,46px); line-height:1.03; }
+    .sub { margin:12px 0 0; color:#aeb7c6; line-height:1.55; }
+    .pill { border:1px solid #303846; border-radius:999px; padding:8px 11px; font-size:13px; white-space:nowrap; color:#b8c3d4; }
+    .pill.ok { color:#9ee6b3; border-color:#285d39; background:#102218; }
+    .panel { display:none; }
+    .panel.active { display:block; }
+    label { display:block; margin:16px 0 8px; font-weight:750; }
+    input, textarea { width:100%; border:1px solid #343c49; border-radius:14px; padding:14px 15px; background:#0c1017; color:#f5f7fa; font:inherit; outline:none; }
+    textarea { min-height:190px; resize:vertical; line-height:1.45; }
+    input:focus,textarea:focus { border-color:#6da3ff; box-shadow:0 0 0 3px rgba(109,163,255,.12); }
+    .row { display:grid; grid-template-columns:1fr 1.5fr auto; gap:10px; margin-top:10px; }
+    button { border:0; border-radius:14px; padding:14px 18px; background:#f5f7fa; color:#0b0d10; font:inherit; font-weight:850; cursor:pointer; }
+    button.secondary { background:#1b2230; color:#edf2f7; border:1px solid #313a49; }
+    button.danger { background:transparent; color:#f3b1b1; border:1px solid #5b3030; }
+    button:disabled { opacity:.48; cursor:not-allowed; }
+    .actions { display:flex; gap:10px; margin-top:16px; }
+    .actions button:first-child { flex:1; }
+    .status { min-height:23px; margin:14px 0 0; color:#aeb7c6; font-size:14px; }
+    .status.ok { color:#9ee6b3; } .status.bad { color:#ffb4b4; }
+    .meta { display:flex; justify-content:space-between; gap:16px; margin-top:8px; color:#7f8a9b; font-size:12px; }
+    .button-list { margin-top:14px; }
+    @media(max-width:620px){ .top{display:block}.pill{display:inline-block;margin-top:14px}.row{grid-template-columns:1fr}.actions{flex-direction:column}.card{padding:20px} }
   </style>
 </head>
 <body>
-  <main>
-    <p class="eyebrow">ChatGPT → Vercel → Telegram</p>
-    <h1>Уведомление для Гриши</h1>
-    <p class="hint">
-      Тестовая страница relay. Кнопка делает обычный POST-запрос к серверной Go-функции Vercel,
-      а та отправляет сообщение через Telegram Bot API.
-    </p>
+<main>
+  <section class="card">
+    <div class="top">
+      <div>
+        <p class="eyebrow">Private Telegram relay</p>
+        <h1>Отправка в Telegram</h1>
+        <p class="sub">Ключ используется только для входа. После авторизации браузер получает защищённую серверную сессию.</p>
+      </div>
+      <span id="state" class="pill">Проверяю…</span>
+    </div>
 
-    <form action="/api/send" method="post" autocomplete="off" id="relay-form">
-      <input type="hidden" name="key" id="relay-key" />
+    <div id="login-panel" class="panel">
+      <form id="login-form" autocomplete="off">
+        <label for="key">Relay key</label>
+        <input id="key" type="password" autocomplete="current-password" required placeholder="Введите ключ доступа" />
+        <div class="actions"><button type="submit">Войти</button></div>
+        <p id="login-status" class="status"></p>
+      </form>
+    </div>
 
-      <label for="text">Текст сообщения</label>
-      <textarea id="text" name="text" maxlength="3500" required>✅ Тестовое уведомление от ChatGPT
+    <div id="send-panel" class="panel">
+      <form id="send-form" autocomplete="off">
+        <label for="text">Сообщение</label>
+        <textarea id="text" maxlength="3500" required placeholder="Введите сообщение…"></textarea>
+        <div class="meta"><span>До 3500 символов</span><span id="counter">0 / 3500</span></div>
 
-Если ты это видишь в Telegram — схема ChatGPT → Vercel → Telegram работает.</textarea>
+        <div class="button-list" id="buttons"></div>
+        <button type="button" id="add-button" class="secondary">+ Добавить кнопку</button>
 
-      <button id="send-button" type="submit" disabled>Отправить Грише в Telegram</button>
-      <p id="status" class="bad">Нет ключа доступа.</p>
-    </form>
-  </main>
+        <div class="actions">
+          <button id="send-button" type="submit">Отправить в Telegram</button>
+          <button id="logout-button" type="button" class="danger">Выйти</button>
+        </div>
+        <p id="send-status" class="status"></p>
+      </form>
+    </div>
+  </section>
+</main>
+<script>
+  const state = document.getElementById('state');
+  const loginPanel = document.getElementById('login-panel');
+  const sendPanel = document.getElementById('send-panel');
+  const loginForm = document.getElementById('login-form');
+  const loginStatus = document.getElementById('login-status');
+  const sendForm = document.getElementById('send-form');
+  const sendStatus = document.getElementById('send-status');
+  const text = document.getElementById('text');
+  const counter = document.getElementById('counter');
+  const addButton = document.getElementById('add-button');
+  const buttonsRoot = document.getElementById('buttons');
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const keyFromUrl = params.get('key');
+  function showLoggedIn(value) {
+    loginPanel.classList.toggle('active', !value);
+    sendPanel.classList.toggle('active', value);
+    state.textContent = value ? 'Авторизован' : 'Требуется вход';
+    state.classList.toggle('ok', value);
+  }
 
-    if (keyFromUrl) {
-      sessionStorage.setItem('relay_key', keyFromUrl);
-      history.replaceState({}, '', window.location.pathname);
+  async function api(path, options = {}) {
+    const response = await fetch(path, { credentials:'same-origin', ...options });
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : await response.text();
+    if (!response.ok) throw new Error(typeof data === 'string' ? data.trim() : data.error || `HTTP ${response.status}`);
+    return data;
+  }
+
+  async function refreshSession() {
+    try {
+      const health = await api('/api/send?action=health');
+      if (!health.configured) {
+        state.textContent = 'Не настроен';
+        state.classList.remove('ok');
+        loginStatus.textContent = 'На сервере отсутствуют обязательные переменные окружения.';
+        loginStatus.className = 'status bad';
+        loginPanel.classList.add('active');
+        return;
+      }
+      showLoggedIn(Boolean(health.authenticated));
+    } catch {
+      state.textContent = 'Ошибка';
+      loginPanel.classList.add('active');
     }
+  }
 
-    const relayKey = sessionStorage.getItem('relay_key');
-    const keyInput = document.getElementById('relay-key');
-    const button = document.getElementById('send-button');
-    const status = document.getElementById('status');
-
-    if (relayKey) {
-      keyInput.value = relayKey;
-      button.disabled = false;
-      status.textContent = 'Доступ разрешён. Можно отправлять.';
-      status.className = 'ok';
+  loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    loginStatus.textContent = 'Проверяю ключ…';
+    loginStatus.className = 'status';
+    try {
+      await api('/api/send?action=login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({key:document.getElementById('key').value}) });
+      document.getElementById('key').value = '';
+      showLoggedIn(true);
+      loginStatus.textContent = '';
+    } catch (error) {
+      loginStatus.textContent = error.message || 'Не удалось войти';
+      loginStatus.className = 'status bad';
     }
-  </script>
+  });
+
+  function addActionButton() {
+    if (buttonsRoot.children.length >= 3) return;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<input class="btn-text" maxlength="64" placeholder="Текст кнопки" aria-label="Текст кнопки"><input class="btn-url" type="url" placeholder="https://example.com" aria-label="Ссылка кнопки"><button class="secondary remove" type="button">Убрать</button>';
+    row.querySelector('.remove').addEventListener('click', () => row.remove());
+    buttonsRoot.appendChild(row);
+  }
+
+  addButton.addEventListener('click', addActionButton);
+  text.addEventListener('input', () => counter.textContent = `${[...text.value].length} / 3500`);
+
+  sendForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const sendButton = document.getElementById('send-button');
+    const buttons = [...buttonsRoot.children].map(row => ({ text:row.querySelector('.btn-text').value, url:row.querySelector('.btn-url').value }));
+    sendButton.disabled = true;
+    sendStatus.textContent = 'Отправляю…';
+    sendStatus.className = 'status';
+    try {
+      await api('/api/send?action=send', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text:text.value, buttons}) });
+      sendStatus.textContent = '✓ Сообщение отправлено';
+      sendStatus.className = 'status ok';
+    } catch (error) {
+      if ((error.message || '').includes('unauthorized')) showLoggedIn(false);
+      sendStatus.textContent = error.message || 'Ошибка отправки';
+      sendStatus.className = 'status bad';
+    } finally { sendButton.disabled = false; }
+  });
+
+  document.getElementById('logout-button').addEventListener('click', async () => {
+    try { await api('/api/send?action=logout', {method:'POST'}); } catch {}
+    showLoggedIn(false);
+    sendStatus.textContent = '';
+  });
+
+  refreshSession();
+</script>
 </body>
 </html>
